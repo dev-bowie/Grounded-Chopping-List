@@ -1,2 +1,2 @@
 # Grounded-Chopping-List
-A very simple web app to keep tracking of what items you need for building
+A very simple web app to keep track of what items you need for building
