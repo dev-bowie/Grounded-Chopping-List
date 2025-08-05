@@ -1,24 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { MdDeleteForever, MdAddCircle, MdDeleteSweep, MdOutlineDoneAll } from "react-icons/md";
-import { motion, AnimatePresence } from 'framer-motion';
-
-type ItemEntry = {
-	item: string;
-	amount: number;
-	done?: boolean;
-	flash?: boolean; // Optional: for flash effect when adding
-};
+import { useState, useEffect, useRef } from 'react';
+import { MdAddCircle, MdDeleteSweep } from "react-icons/md";
+import { PiAxeBold } from "react-icons/pi";
+import { AnimatePresence } from 'framer-motion';
+import ItemCard from './ItemCard';
 
 const LOCAL_STORAGE_KEY = 'choppingListItems';
 const MAX_ITEM_AMOUNT = 999;
 
+interface Item {
+	name: string;
+	amount: number;
+}
+
 export default function ItemList() {
-	const [ items, setItems ] = useState<ItemEntry[]>([]);
-	const [ predefinedItems, setPredefinedItems ] = useState<string[]>([]);
-	const [ selectedItem, setSelectedItem ] = useState('');
-	const [ amount, setAmount ] = useState(1);
+	const [items, setItems] = useState<Item[]>([]);
+	const [predefinedItems, setPredefinedItems] = useState<string[]>([]);
+	const [selectedItem, setSelectedItem] = useState('');
+	const [amount, setAmount] = useState(1);
+
+	const amountInputRef = useRef<HTMLInputElement>(null);
+	const selectRef = useRef<HTMLSelectElement>(null);
 
 	// Load items from json
 	useEffect(() => {
@@ -26,7 +29,6 @@ export default function ItemList() {
 			.then(res => res.json())
 			.then(data => {
 				setPredefinedItems(data);
-				setSelectedItem(data[0] || '');
 			})
 	}, []);
 
@@ -47,176 +49,139 @@ export default function ItemList() {
 		localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
 	}, [items]);
 
-	// Flash effect for updated items
+	// Listen for Slash key to focus the select input
 	useEffect(() => {
-		const timer = setTimeout(() => {
-			setItems(prev =>
-				prev.map(entry =>
-					entry.flash ? { ...entry, flash: false } : entry
-				)
-			);
-		}, 200); // match animation duration
+		const handleSlashKeyDown = (e: KeyboardEvent) => {
+			if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'SELECT') {
+				e.preventDefault();
+				selectRef.current?.focus();
+			}
+		};
 
-		return () => clearTimeout(timer);
-	}, [items]);
+		window.addEventListener('keydown', handleSlashKeyDown);
+		return () => window.removeEventListener('keydown', handleSlashKeyDown);
+	}, []);
 
 	const handleAddItem = () => {
 		if (!selectedItem || amount < 1) return;
 
 		setItems(prev => {
-			const index = prev.findIndex(entry => entry.item === selectedItem && !entry.done);
+			const existing = prev.find(i => i.name === selectedItem);
 
-			if (index !== -1) {
-				// If item already exists, update the amount
-				const updated = [...prev];
-				const currentAmount = updated[index].amount;
-				const newAmount = Math.min(currentAmount + amount, MAX_ITEM_AMOUNT);
-
-				updated[index] = {
-					...updated[index],
-					amount: newAmount,
-				};
-
-				updated[index].flash = true; // Optional: add a flash effect
-
-				return updated;
+			if (existing) {
+				return prev.map(item =>
+					item.name === selectedItem
+						? { ...item, amount: Math.min(item.amount + amount, MAX_ITEM_AMOUNT) }
+						: item
+				);
 			} else {
 				// Otherwise, add a new item
-				return [...prev, { item: selectedItem, amount }];
+				return [...prev, { name: selectedItem, amount }];
 			}
 		});
 
 		setAmount(1);
+		setSelectedItem('');
 	};
 
-	const handleUpdateAmount = (index: number, newAmount: number) => {
-		setItems(prev => prev.map((entry, i) => (i === index ? { ...entry, amount: newAmount } : entry)));
+	const handleItemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+		setSelectedItem(e.target.value);
+		setTimeout(() => {
+			amountInputRef.current?.focus();
+			amountInputRef.current?.select();
+		}, 0); // Focus the amount input after selection
 	}
 
-	const handleMarkAsDone = (index: number) => {
-		setItems(prev => prev.map((entry, i) => (i === index ? { ...entry, amount: 0, done: true } : entry)));
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		handleAddItem();
+	}
+
+	const handleMarkAsDone = (name: string) => {
+		setItems(prev => prev.map(entry => (entry.name === name ? { ...entry, amount: 0 } : entry)));
 
 		// Remove the item after 5 seconds
 		setTimeout(() => {
-			setItems(prev => prev.filter((_, i) => i !== index));
+			setItems(prev => prev.filter(item => item.name !== name));
 		}, 2500);
 	};
 
-	const handleRemoveItem = (index: number) => {
-		const temp = [...items];
-		temp.splice(index, 1);
-		setItems(temp);
+	const handleRemoveItem = (name: string) => {
+		setItems(prev => prev.filter(item => item.name !== name));
+	};
+
+	const handleClearList = () => {
+		setItems([]);
 	};
 
 	return (
-		<div className='space-y-4'>
-			<div className='flex justify-between items-center'>
-				<h2 className='text-xl font-bold'>Chopping List</h2>
-				<button
-					onClick={() => setItems([])}
-					className='bg-red-700 text-white px-4 py-1 rounded hover:bg-rose-600'
-					>
-					<MdDeleteSweep className='inline font-size-16' /> Clear List
-				</button>
-			</div>
-
-			<div className='flex gap-2 items-center'>
+		<div className='w-full mx-auto px-4 py-8'>
+			<form onSubmit={handleSubmit} className='flex flex-wrap gap-2 mb-6 items-end'>
 				<select
+					id='item-select'
 					value={selectedItem}
-					onChange={e => setSelectedItem(e.target.value)}
-					className='border px-2 py-1 mx-1 rounded bg-sky-900 w-1/3'
+					ref={selectRef}
+					onChange={handleItemChange}
+					className='border px-2 py-1 rounded bg-sky-900 text-white h-8 w-1/3'
 				>
+					<option value='' disabled hidden>Select an item</option>
 					{predefinedItems.map(item => (
-						<option key={item}>
+						<option key={item} value={item}>
 							{item}
 						</option>
 					))}
 				</select>
 
 				<input
+					ref={amountInputRef}
 					type='number'
 					min={1}
+					max={MAX_ITEM_AMOUNT}
 					value={amount}
-					onChange={e => setAmount(parseInt(e.target.value))}
-					className='border px-2 py-1 mx-1 rounded w-32'
+					onChange={e => setAmount(Math.max(1, Math.min(MAX_ITEM_AMOUNT, +e.target.value)))}
+					className='border px-2 py-1 rounded bg-sky-900 text-white h-8'
 				/>
 
 				<button
+					type='submit'
 					onClick={handleAddItem}
-					className='bg-blue-700 text-white px-4 py-1 rounded hover:bg-emerald-700'
+					className='bg-blue-700 text-white px-4 py-1 rounded h-8 hover:bg-emerald-700'
 				>
 					<MdAddCircle className='inline' /> Add
 				</button>
-			</div>
 
-			<table className='w-full border-collapse table-auto'>
-				<thead>
-					<tr className='border-b'>
-						<th className='text-left p-2'>Item</th>
-						<th className='p-2 relative group cursor-help'>
-							Amount
-							<sup className='ml-1 italic'>i</sup>
+				{items.length > 0 && (
+					<button
+						type='button'
+						onClick={handleClearList}
+						className='bg-red-700 text-white px-4 py-1 rounded hover:bg-rose-600'
+					>
+						<MdDeleteSweep className='inline' /> Clear List
+					</button>
+				)}
+			</form>
 
-							{/* Tooltip for amount info */}
-							<div className='absolute left-0 top-full mt-1 hidden group-hover:block bg-gray-800 text-white text-sm p-2 rounded shadow-lg'>
-								The maximum amount for any item is {MAX_ITEM_AMOUNT}.
-							</div>
-						</th>
-						<th className='p-2'>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					<AnimatePresence>
-						{items.map((entry, index) => (
-							<motion.tr
-								key={entry.item + index}
-								layout
-								exit={
-									entry.done
-										? { opacity: 0, scale: 0.3, transition: { duration: 0.2 } } // Pop on done
-										: { opacity: 0, x: -100, transition: { duration: 0.2 } }	// Slide out on remove
-								}
-								initial={{ opacity: 1, y:-10 }}
-								animate={{ opacity: 1, y: 0 }}
-								className={`border-b ${entry.done ? 'text-gray-400' : ''} ${entry.flash ? 'bg-yellow-50 transition-all duration-200' : ''}`}
-							>
-								<td className='p-2 w-1/3'>
-									<span className={entry.done ? 'line-through' : ''}>{entry.item}</span>
-								</td>
-								<td className='p-2'>
-									{entry.done ? (
-										<span className='text-gray-500'>Done 🎉</span>
-									) : (
-										<input
-											type='number'
-											min={1}
-											value={entry.amount}
-											onChange={e => handleUpdateAmount(index, parseInt(e.target.value))}
-											className='border px-2 py-1 rounded w-32'
-										/>
-									)}
-								</td>
-								<td className='p-2 text-center space-x-2'>
-									{!entry.done && (
-										<button
-											onClick={() => handleMarkAsDone(index)}
-											className='bg-green-700 text-white px-2 py-1 rounded hover:bg-green-600'
-										>
-											<MdOutlineDoneAll className='inline' /> Done
-										</button>
-									)}
-									<button
-										onClick={() => handleRemoveItem(index)}
-										className='bg-red-700 text-white px-2 py-1 rounded hover:bg-rose-600'
-									>
-										<MdDeleteForever className='inline' /> Remove
-									</button>
-								</td>
-							</motion.tr>
+			<AnimatePresence>
+				{items.length === 0 ? (
+					<div className='text-center text-gray-400 italic py-8 w-full'>
+						<PiAxeBold className='inline mr-3 text-3xl'/>
+						Your chopping list is empty! Select an item to start!
+					</div>
+				) : (
+					<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3'>
+						{items.map(item => (
+							<ItemCard
+								key={item.name}
+								name={item.name}
+								amount={item.amount}
+								onRemove={() => handleRemoveItem(item.name)}
+								onDone={() => handleMarkAsDone(item.name)}
+								isDone={item.amount === 0}
+							/>
 						))}
-					</AnimatePresence>
-				</tbody>
-			</table>
+					</div>
+				)}
+			</AnimatePresence>
 		</div>
 	);
 }
