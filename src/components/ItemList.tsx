@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { MdAddCircle, MdDeleteSweep } from "react-icons/md";
+import { useState, useEffect, useRef, useContext } from 'react';
+import { MdAddCircle, MdDeleteSweep, MdOutlineDoneAll } from "react-icons/md";
 import { CiUndo } from "react-icons/ci";
 import { PiAxeBold } from "react-icons/pi";
 import { AnimatePresence } from 'framer-motion';
@@ -20,6 +20,8 @@ import {
 	verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import confetti from 'canvas-confetti';
+import { EffectsContext } from '@/context/EffectsContext';
 import ItemCard from './ItemCard';
 
 const LOCAL_STORAGE_KEY = 'choppingListItems';
@@ -45,6 +47,8 @@ export default function ItemList() {
 	const noteInputRef = useRef<HTMLInputElement>(null);
 
 	const sensors = useSensors(useSensor(PointerSensor));
+	const effectsEnabled = useContext(EffectsContext);
+	
 
 	// Load items from json
 	useEffect(() => {
@@ -183,6 +187,24 @@ export default function ItemList() {
 		}
 	};
 
+	const handleMarkAllAsDone = () => {
+		if (effectsEnabled) {
+			confetti({
+				particleCount: 150,
+				spread: 100,
+				origin: { x: 0.5, y: 0.5 },
+				disableForReducedMotion: true,
+			});
+		}
+
+		setItems(prev => prev.map(entry => ({ ...entry, amount: 0 })));
+
+		// Remove the items after 5 seconds
+		setTimeout(() => {
+			setItems(prev => prev.filter(item => item.amount > 0));
+		}, 2500);
+	}
+
 	const handleClearList = () => {
 		setItems([]);
 	};
@@ -232,14 +254,23 @@ export default function ItemList() {
 					<MdAddCircle className='inline' /> Add
 				</button>
 
-				{items.length > 0 && (
-					<button
-						type='button'
-						onClick={handleClearList}
-						className='bg-red-700 text-white px-4 py-1 rounded hover:bg-rose-600'
-					>
-						<MdDeleteSweep className='inline' /> Clear List
-					</button>
+				{items.length > 1 && (
+					<div className='flex gap-2'>
+						<button
+							type='button'
+							onClick={handleMarkAllAsDone}
+							className='bg-green-700 text-white px-4 py-1 rounded hover:bg-green-600'
+						>
+							<MdOutlineDoneAll className='inline' /> Mark All as Done
+						</button>
+						<button
+							type='button'
+							onClick={handleClearList}
+							className='bg-red-700 text-white px-4 py-1 rounded hover:bg-rose-600'
+						>
+							<MdDeleteSweep className='inline' /> Clear List
+						</button>
+					</div>
 				)}
 			</form>
 
