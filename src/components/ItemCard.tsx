@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useState, useRef, useContext } from 'react';
 import { MdDeleteForever, MdOutlineDoneAll, MdDragHandle  } from "react-icons/md";
 import confetti from 'canvas-confetti';
-import { EffectsContext } from '../app/layout';
+import { EffectsContext } from '@/context/EffectsContext';
 
 interface ItemCardProps {
 	name: string;
