@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { MdAddCircle, MdDeleteSweep } from "react-icons/md";
+import { CiUndo } from "react-icons/ci";
 import { PiAxeBold } from "react-icons/pi";
 import { AnimatePresence } from 'framer-motion';
 import ItemCard from './ItemCard';
@@ -16,12 +17,14 @@ interface Item {
 
 export default function ItemList() {
 	const [items, setItems] = useState<Item[]>([]);
+	const [undoItem, setUndoItem] = useState<Item | null>(null);
 	const [predefinedItems, setPredefinedItems] = useState<string[]>([]);
 	const [selectedItem, setSelectedItem] = useState('');
 	const [amount, setAmount] = useState(1);
 
 	const amountInputRef = useRef<HTMLInputElement>(null);
 	const selectRef = useRef<HTMLSelectElement>(null);
+	const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
 	// Load items from json
 	useEffect(() => {
@@ -34,19 +37,15 @@ export default function ItemList() {
 
 	// Load items from local storage
 	useEffect(() => {
-		const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-		if (saved) {
-			try {
-				setItems(JSON.parse(saved));
-			} catch (error) {
-				console.error('Failed to parse items from local storage:', error);
-			}
+		const savedItems = loadFromLocalStorage();
+		if (savedItems.length > 0) {
+			setItems(savedItems);
 		}
 	}, []);
 
 	// Save to local storage whenever items change
 	useEffect(() => {
-		localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+		saveToLocalStorage(items);
 	}, [items]);
 
 	// Listen for Slash key to focus the select input
@@ -61,6 +60,15 @@ export default function ItemList() {
 		window.addEventListener('keydown', handleSlashKeyDown);
 		return () => window.removeEventListener('keydown', handleSlashKeyDown);
 	}, []);
+
+	const saveToLocalStorage = (items: Item[]) => {
+		localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+	}
+
+	const loadFromLocalStorage = (): Item[] => {
+		const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+		return stored ? JSON.parse(stored) : [];
+	}
 
 	const handleAddItem = () => {
 		if (!selectedItem || amount < 1) return;
@@ -107,7 +115,35 @@ export default function ItemList() {
 	};
 
 	const handleRemoveItem = (name: string) => {
-		setItems(prev => prev.filter(item => item.name !== name));
+		const removedItem = items.find(item => item.name === name);
+
+		if (removedItem) {
+			setUndoItem(removedItem);
+
+			const newItems = items.filter(item => item.name !== name);
+			setItems(newItems);
+			saveToLocalStorage(newItems);
+
+			if (undoTimeoutRef.current) {
+				clearTimeout(undoTimeoutRef.current);
+			}
+
+			undoTimeoutRef.current = setTimeout(() => {
+				setUndoItem(null);
+			}, 5000);
+		}
+	};
+
+	const handleUndo = () => {
+		if (!undoItem) return;
+		const updatedItems = [...items, undoItem];
+		setItems(updatedItems);
+		saveToLocalStorage(updatedItems);
+		setUndoItem(null);
+
+		if (undoTimeoutRef.current) {
+			clearTimeout(undoTimeoutRef.current);
+		}
 	};
 
 	const handleClearList = () => {
@@ -182,6 +218,18 @@ export default function ItemList() {
 					</div>
 				)}
 			</AnimatePresence>
+
+			{undoItem && (
+				<div className='fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-amber-200 text-black px- rounded shadow-lg flex items-center gap-4 z-50'>
+					<span className='ml-2'>Removed <strong>{undoItem.name}</strong></span>
+					<button
+						onClick={handleUndo}
+						className='bg-blue-500 text-white mx-2 my-3 px-3 py-1 rounded hover:bg-blue-600'
+					>
+						<CiUndo className='inline' /> Undo
+					</button>
+				</div>
+			)}
 		</div>
 	);
 }
