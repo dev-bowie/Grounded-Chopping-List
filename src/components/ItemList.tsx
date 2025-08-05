@@ -5,6 +5,21 @@ import { MdAddCircle, MdDeleteSweep } from "react-icons/md";
 import { CiUndo } from "react-icons/ci";
 import { PiAxeBold } from "react-icons/pi";
 import { AnimatePresence } from 'framer-motion';
+import {
+	DndContext,
+	closestCenter,
+	PointerSensor,
+	useSensor,
+	useSensors,
+	DragEndEvent
+} from '@dnd-kit/core';
+import {
+	SortableContext,
+	arrayMove,
+	useSortable,
+	verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import ItemCard from './ItemCard';
 
 const LOCAL_STORAGE_KEY = 'choppingListItems';
@@ -25,6 +40,8 @@ export default function ItemList() {
 	const amountInputRef = useRef<HTMLInputElement>(null);
 	const selectRef = useRef<HTMLSelectElement>(null);
 	const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+	const sensors = useSensors(useSensor(PointerSensor));
 
 	// Load items from json
 	useEffect(() => {
@@ -68,6 +85,18 @@ export default function ItemList() {
 	const loadFromLocalStorage = (): Item[] => {
 		const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
 		return stored ? JSON.parse(stored) : [];
+	}
+
+	const handleDragEnd = (event: DragEndEvent) => {
+		const { active, over } = event;
+		if (active.id !== over?.id) {
+			const oldIndex = items.findIndex(item => item.name === active.id);
+			const newIndex = items.findIndex(item => item.name === over?.id);
+
+			const newItems = arrayMove(items, oldIndex, newIndex);
+			setItems(newItems);
+			saveToLocalStorage(newItems);
+		}
 	}
 
 	const handleAddItem = () => {
@@ -200,22 +229,25 @@ export default function ItemList() {
 			<AnimatePresence>
 				{items.length === 0 ? (
 					<div className='text-center text-gray-400 italic py-8 w-full'>
-						<PiAxeBold className='inline mr-3 text-3xl'/>
+						<PiAxeBold className='inline mr-3 text-3xl' />
 						Your chopping list is empty! Select an item to start!
 					</div>
 				) : (
-					<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3'>
-						{items.map(item => (
-							<ItemCard
-								key={item.name}
-								name={item.name}
-								amount={item.amount}
-								onRemove={() => handleRemoveItem(item.name)}
-								onDone={() => handleMarkAsDone(item.name)}
-								isDone={item.amount === 0}
-							/>
-						))}
-					</div>
+					<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+						<SortableContext items={items.map(item => item.name)} strategy={verticalListSortingStrategy}>
+							<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3'>
+								{items.map(item => (
+									<SortableItem
+										key={item.name}
+										item={item}
+										onDone={() => handleMarkAsDone(item.name)}
+										onRemove={() => handleRemoveItem(item.name)}
+									/>
+								))}
+							</div>
+						</SortableContext>
+					</DndContext>
+
 				)}
 			</AnimatePresence>
 
@@ -232,4 +264,35 @@ export default function ItemList() {
 			)}
 		</div>
 	);
+}
+
+function SortableItem({ item, onDone, onRemove }: {
+	item: Item;
+	onDone: () => void;
+	onRemove: () => void;
+}) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition
+	} = useSortable({ id: item.name });
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+	};
+
+	return (
+		<div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+			<ItemCard
+				name={item.name}
+				amount={item.amount}
+				onDone={onDone}
+				onRemove={onRemove}
+				isDone={item.amount === 0}
+			/>
+		</div>
+	)
 }
