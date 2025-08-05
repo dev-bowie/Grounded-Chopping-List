@@ -28,6 +28,7 @@ const MAX_ITEM_AMOUNT = 999;
 interface Item {
 	name: string;
 	amount: number;
+	note?: string;
 }
 
 export default function ItemList() {
@@ -36,10 +37,12 @@ export default function ItemList() {
 	const [predefinedItems, setPredefinedItems] = useState<string[]>([]);
 	const [selectedItem, setSelectedItem] = useState('');
 	const [amount, setAmount] = useState(1);
+	const [note, setNote] = useState('');
 
 	const amountInputRef = useRef<HTMLInputElement>(null);
 	const selectRef = useRef<HTMLSelectElement>(null);
 	const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+	const noteInputRef = useRef<HTMLInputElement>(null);
 
 	const sensors = useSensors(useSensor(PointerSensor));
 
@@ -108,17 +111,22 @@ export default function ItemList() {
 			if (existing) {
 				return prev.map(item =>
 					item.name === selectedItem
-						? { ...item, amount: Math.min(item.amount + amount, MAX_ITEM_AMOUNT) }
+						? {
+							...item,
+							amount: Math.min(item.amount + amount, MAX_ITEM_AMOUNT),
+							note: note.trim() || item.note
+						 }
 						: item
 				);
 			} else {
 				// Otherwise, add a new item
-				return [...prev, { name: selectedItem, amount }];
+				return [...prev, { name: selectedItem, amount, note: note.trim() || undefined }];
 			}
 		});
 
 		setAmount(1);
 		setSelectedItem('');
+		setNote('');
 	};
 
 	const handleItemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -207,6 +215,15 @@ export default function ItemList() {
 					className='border px-2 py-1 rounded bg-sky-900 text-white h-8'
 				/>
 
+				<input
+					type='text'
+					placeholder='Optional note...'
+					value={note}
+					onChange={e => setNote(e.target.value)}
+					ref={noteInputRef}
+					className='border px-2 py-1 mx-1 rounded bg-sky-900 text-white h-8'
+				/>
+
 				<button
 					type='submit'
 					onClick={handleAddItem}
@@ -285,13 +302,15 @@ function SortableItem({ item, onDone, onRemove }: {
 	};
 
 	return (
-		<div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+		<div ref={setNodeRef} style={style}>
 			<ItemCard
 				name={item.name}
 				amount={item.amount}
 				onDone={onDone}
 				onRemove={onRemove}
 				isDone={item.amount === 0}
+				note={item.note}
+				dragHandleProps={{ ...attributes, ...listeners }}
 			/>
 		</div>
 	)
