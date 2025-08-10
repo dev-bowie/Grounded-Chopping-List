@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useState, useRef, useContext, useEffect } from 'react';
+import React, { useState, useRef, useContext, useEffect } from 'react';
 import { MdDeleteForever, MdOutlineDone, MdDragHandle  } from "react-icons/md";
 import confetti from 'canvas-confetti';
 import { EffectsContext } from '@/context/EffectsContext';
