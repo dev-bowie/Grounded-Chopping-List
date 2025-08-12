@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { EffectsContext } from "@/context/EffectsContext";
 import { TbConfetti, TbConfettiOff } from "react-icons/tb"
 
