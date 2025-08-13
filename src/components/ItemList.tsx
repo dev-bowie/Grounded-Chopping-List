@@ -300,7 +300,7 @@ export function ItemList() {
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                         <SortableContext items={items.map(item => item.name)} strategy={verticalListSortingStrategy}>
                             <div
-                                className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3'>
+                                className='grid gap-4 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]'>
                                 {items.map(item => (
                                     <SortableItem
                                         key={item.name}

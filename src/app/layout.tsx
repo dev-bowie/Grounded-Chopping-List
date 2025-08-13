@@ -1,7 +1,8 @@
 import type {Metadata} from "next";
 import "./globals.css";
 import {Geist, Geist_Mono} from "next/font/google";
-import ClientLayout from "@/app/client-layout";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import React from "react";
 
 const geistSans = Geist({
@@ -19,15 +20,13 @@ export const metadata: Metadata = {
     description: "A simple app for managing your chopping list in Grounded"
 };
 
-export default function RootLayout({
-                                       children,
-                                   }: Readonly<{
-    children: React.ReactNode;
-}>) {
+export default function RootLayout({children}: { children: React.ReactNode }) {
     return (
         <html lang="en">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ClientLayout>{children}</ClientLayout>
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
+        <Header/>
+        <main className={"flex-grow p-4"}>{children}</main>
+        <Footer/>
         </body>
         </html>
     );
